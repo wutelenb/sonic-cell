@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SONIC CELL 声能电池</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#05070a}
+body{font-family:Consolas,'Courier New',monospace;color:#e9eae4}
+#bg{position:fixed;inset:0;z-index:0;background:
+  radial-gradient(60% 55% at 50% 0%,rgba(36,231,255,.09),transparent 65%),
+  radial-gradient(55% 45% at 82% 100%,rgba(255,45,111,.08),transparent 60%),#05070a}
+#bg::after{content:'';position:absolute;inset:0;opacity:.5;background-image:
+  linear-gradient(rgba(36,231,255,.05) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(36,231,255,.05) 1px,transparent 1px);background-size:44px 44px}
+#flash{position:fixed;inset:0;z-index:78;pointer-events:none;opacity:0;
+  background:radial-gradient(ellipse at 50% 60%,rgba(36,231,255,.16),transparent 65%)}
+#veil{position:fixed;inset:0;z-index:79;pointer-events:none;display:none;
+  background:radial-gradient(ellipse at center,rgba(255,45,111,.08) 0%,rgba(255,45,111,.34) 100%)}
+#scan{position:fixed;inset:0;z-index:80;pointer-events:none;opacity:.45;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.25) 0 1px,transparent 1px 3px)}
+.wrap{position:relative;z-index:10;height:100vh;display:flex;flex-direction:column;gap:14px;padding:20px 30px 44px}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+#title h1{font-size:30px;letter-spacing:.18em;text-shadow:0 0 18px rgba(36,231,255,.55)}
+#title h1 b{color:#24e7ff}
+#title .sub{margin-top:4px;font-size:13px;letter-spacing:.3em;color:#9fb3c0}
+#btnrow{display:flex;gap:10px}
+.trkbtn{font-family:inherit;font-size:14px;letter-spacing:.05em;color:#24e7ff;
+  background:rgba(8,14,20,.85);border:1px solid rgba(36,231,255,.45);padding:10px 16px;cursor:pointer;transition:all .15s}
+.trkbtn:hover{background:rgba(36,231,255,.12);box-shadow:0 0 14px rgba(36,231,255,.35)}
+.trkbtn.act{color:#e9eae4;background:rgba(36,231,255,.16);border-color:#24e7ff;box-shadow:0 0 18px rgba(36,231,255,.55)}
+#stage{flex:1;display:flex;gap:16px;min-height:0}
+.panel{border:1px solid rgba(36,231,255,.28);background:rgba(8,13,19,.72);border-radius:6px;
+  box-shadow:inset 0 0 30px rgba(36,231,255,.05);position:relative}
+.panel .cap{position:absolute;top:8px;left:12px;font-size:11px;letter-spacing:.25em;color:rgba(36,231,255,.75);z-index:2}
+#colA{width:290px;display:flex;flex-direction:column;justify-content:center;gap:12px;padding:16px}
+#pctcap{font-size:11px;letter-spacing:.3em;color:#9fb3c0}
+#pct{font-size:72px;font-weight:700;line-height:1;text-shadow:0 0 24px rgba(36,231,255,.5)}
+#pct .unit{font-size:.38em;color:#24e7ff;margin-left:6px}
+body.over #pct{color:#ff2d6f;text-shadow:0 0 26px rgba(255,45,111,.75)}
+#batt{display:flex;gap:4px;border:1px solid rgba(36,231,255,.45);padding:5px 6px;margin-right:8px;
+  background:rgba(6,10,15,.9);border-radius:3px;box-shadow:0 0 18px rgba(36,231,255,.15);position:relative}
+#batt::after{content:'';position:absolute;right:-6px;top:50%;transform:translateY(-50%);width:4px;height:40%;background:rgba(36,231,255,.45)}
+.cell{flex:1;height:34px;background:rgba(36,231,255,.07)}
+.cell.lit{background:linear-gradient(180deg,#7df3ff,#0a8fb8);box-shadow:0 0 8px rgba(36,231,255,.65)}
+.cell.hot.lit{background:linear-gradient(180deg,#ff5c8f,#a3123f);box-shadow:0 0 8px rgba(255,45,111,.7)}
+body.over .cell.lit{background:#ff2d6f;box-shadow:0 0 12px rgba(255,45,111,.9);animation:cellblink .4s infinite alternate}
+@keyframes cellblink{to{filter:brightness(1.6)}}
+#batt.zap{animation:zap .14s steps(2) 1}
+@keyframes zap{50%{transform:translateX(1px) skewX(1deg);filter:brightness(1.9)}}
+#status{font-size:15px;letter-spacing:.32em;color:#24e7ff}
+body.over #status{color:#ff2d6f;text-shadow:0 0 12px rgba(255,45,111,.8)}
+#colB{flex:1;min-width:0}
+#colB canvas,#colC canvas{width:100%;height:100%;display:block}
+#colC{width:32%;min-width:280px}
+#note{font-size:12px;letter-spacing:.12em;color:rgba(233,234,228,.45)}
+#ovl{position:fixed;inset:0;z-index:84;pointer-events:none;display:none}
+#statusbar{position:fixed;inset:0;z-index:86;display:none;pointer-events:none;align-items:center;justify-content:center;
+  font-size:min(11vw,120px);font-weight:700;letter-spacing:.35em;color:#ff2d6f;
+  text-shadow:0 0 24px rgba(255,45,111,.9),0 0 90px rgba(255,45,111,.45);animation:obf 1s steps(2) infinite}
+@keyframes obf{50%{opacity:.82}}
+#keysHint{position:fixed;right:18px;bottom:12px;z-index:90;font-size:12px;letter-spacing:.1em;color:rgba(233,234,228,.35);pointer-events:none}
+@media (min-width:1280px) and (min-height:860px){
+  #pct{font-size:104px}
+  #note,#keysHint{font-size:13px}
+  #status{font-size:17px}
+}
+</style>
+</head>
+<body>
+<div id="bg"></div>
+<div id="flash"></div>
+<div id="veil"></div>
+<div id="scan"></div>
+<div class="wrap">
+  <header>
+    <div id="title">
+      <h1>SONIC <b>CELL</b></h1>
+      <div class="sub">声能电池 · 把一首歌实时量成一块电池的电量</div>
+    </div>
+    <div id="btnrow">
+      <button class="trkbtn" data-i="0">01 低电量人格 70BPM</button>
+      <button class="trkbtn" data-i="1">02 城市通勤 120BPM</button>
+      <button class="trkbtn" data-i="2">03 过载现场 168BPM</button>
+    </div>
+  </header>
+  <div id="stage">
+    <div id="colA" class="panel">
+      <div id="pctcap">CHARGE 电量</div>
+      <div id="pct"><span id="pctNum">0</span><span class="unit">%</span></div>
+      <div id="batt"></div>
+      <div id="status">STANDBY</div>
+    </div>
+    <div id="colB" class="panel"><div class="cap">CORE 电量表</div><canvas id="gauge"></canvas></div>
+    <div id="colC" class="panel"><div class="cap">SPECTRUM 频谱</div><canvas id="spec"></canvas></div>
+  </div>
+  <div id="note">低频轰鸣 = 电流 · 鼓点 = 脉冲 · 拖入本地音频文件试玩 · R 复位</div>
+</div>
+<canvas id="ovl"></canvas>
+<div id="statusbar">OVERCHARGE</div>
+<div id="keysHint">1/2/3 切歌 · 空格 强制充电 · D 自动演示 · F 全屏</div>
+<audio id="player" style="display:none"></audio>
+<script>
+'use strict';
+window.BUILD='sc5-fix';
+window.__errs=[];
+addEventListener('error',function(e){try{window.__errs.push(String(e.message||e))}catch(_){}});
+
+/* ---------- dom ---------- */
+var $=function(id){return document.getElementById(id)};
+var gaugeC=$('gauge'),specC=$('spec'),ovlC=$('ovl'),flashEl=$('flash'),veil=$('veil'),statusbar=$('statusbar'),
+    pctNum=$('pctNum'),batt=$('batt'),statusEl=$('status'),player=$('player');
+var gg=gaugeC.getContext('2d'),sg=specC.getContext('2d'),og=ovlC.getContext('2d');
+var DPR=1;
+var CELLS=14,cells=[];
+for(var ci=0;ci<CELLS;ci++){
+  var d=document.createElement('div');
+  d.className='cell'+(ci>=CELLS-3?' hot':'');
+  batt.appendChild(d);cells.push(d);
+}
+var btns=Array.prototype.slice.call(document.querySelectorAll('.trkbtn'));
+
+/* 青→粉 插值 */
+function mixCol(m){
+  var r=Math.round(36+219*m),g=Math.round(231-186*m),b=Math.round(255-144*m);
+  return r+','+g+','+b;
+}
+
+/* ---------- audio graph ---------- */
+var actx=null,master,comp,analyser,dly,fbk,noiseBuf,freqData=null,mediaHooked=false;
+var sens=1.2;
+function ensureCtx(){
+  if(actx){if(actx.state==='suspended')actx.resume();return;}
+  actx=new (window.AudioContext||window.webkitAudioContext)();
+  master=actx.createGain();master.gain.value=.9;
+  comp=actx.createDynamicsCompressor();
+  comp.threshold.value=-14;comp.knee.value=22;comp.ratio.value=8;comp.attack.value=.004;comp.release.value=.18;
+  analyser=actx.createAnalyser();analyser.fftSize=2048;analyser.smoothingTimeConstant=.74;
+  master.connect(comp);comp.connect(analyser);analyser.connect(actx.destination);
+  dly=actx.createDelay(1);dly.delayTime.value=.402;
+  fbk=actx.createGain();fbk.gain.value=.32;
+  dly.connect(fbk);fbk.connect(dly);dly.connect(master);
+  freqData=new Uint8Array(analyser.frequencyBinCount);
+  noiseBuf=actx.createBuffer(1,actx.sampleRate,actx.sampleRate);
+  var ch=noiseBuf.getChannelData(0);
+  for(var i=0;i<ch.length;i++)ch[i]=Math.random()*2-1;
+  if(!mediaHooked){mediaHooked=true;var src=actx.createMediaElementSource(player);src.connect(master);}
+}
+function band(f1,f2){
+  var nyq=actx.sampleRate/2,N=freqData.length;
+  var b0=Math.max(0,Math.floor(f1/nyq*N)),b1=Math.min(N-1,Math.ceil(f2/nyq*N));
+  var s=0;for(var i=b0;i<=b1;i++)s+=freqData[i];
+  return s/((b1-b0+1)*255);
+}
+
+/* ---------- 音色 ---------- */
+function vKick(t,acc){
+  var o=actx.createOscillator(),g=actx.createGain();
+  o.type='sine';o.frequency.setValueAtTime(150,t);o.frequency.exponentialRampToValueAtTime(42,t+.12);
+  g.gain.setValueAtTime(.9*acc,t);g.gain.exponentialRampToValueAtTime(.001,t+.3);
+  o.connect(g);g.connect(master);o.start(t);o.stop(t+.32);
+}
+function vSnare(t,acc){
+  var s=actx.createBufferSource();s.buffer=noiseBuf;
+  var f=actx.createBiquadFilter();f.type='bandpass';f.frequency.value=1800;f.Q.value=.8;
+  var g=actx.createGain();g.gain.setValueAtTime(.5*acc,t);g.gain.exponentialRampToValueAtTime(.001,t+.18);
+  s.connect(f);f.connect(g);g.connect(master);s.start(t);s.stop(t+.2);
+}
+function vHat(t,acc,open){
+  var s=actx.createBufferSource();s.buffer=noiseBuf;
+  var f=actx.createBiquadFilter();f.type='highpass';f.frequency.value=7500;
+  var g=actx.createGain(),d=open?.18:.05;
+  g.gain.setValueAtTime(.25*acc,t);g.gain.exponentialRampToValueAtTime(.001,t+d);
+  s.connect(f);f.connect(g);g.connect(master);s.start(t);s.stop(t+d+.02);
+}
+function vBass(t,f0,dur){
+  var o=actx.createOscillator(),f=actx.createBiquadFilter(),g=actx.createGain();
+  o.type='sawtooth';o.frequency.value=f0;
+  f.type='lowpass';f.frequency.setValueAtTime(900,t);f.frequency.exponentialRampToValueAtTime(320,t+dur);f.Q.value=6;
+  g.gain.setValueAtTime(.5,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);
+  o.connect(f);f.connect(g);g.connect(master);o.start(t);o.stop(t+dur+.02);
+}
+function vLead(t,f0,dur){
+  var o=actx.createOscillator(),f=actx.createBiquadFilter(),g=actx.createGain(),send=actx.createGain();
+  o.type='square';o.frequency.value=f0;
+  f.type='lowpass';f.frequency.value=2600;
+  g.gain.setValueAtTime(.16,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);
+  send.gain.value=.25;
+  o.connect(f);f.connect(g);g.connect(master);g.connect(send);send.connect(dly);
+  o.start(t);o.stop(t+dur+.02);
+}
+
+/* ---------- 三档音轨（A 小调五声音阶，16 分音符循环） ---------- */
+function mkTrack(bpm,bars,kick,snare,hat,bass,lead){
+  return{bpm:bpm,total:bars*16,kick:kick,snare:snare,hat:hat,bass:bass,lead:lead,
+    bassMap:new Map(bass.map(function(n){return[n[0],n]})),
+    leadMap:new Map(lead.map(function(n){return[n[0],n]}))};
+}
+var TRACKS=[
+  mkTrack(70,1,
+    '1000000010000000',
+    '0000100000001000',
+    '0010001000100010',
+    [[0,55],[8,55],[14,49]],
+    [[0,440,3],[6,392,2],[12,329.63,3]]),
+  mkTrack(120,2,
+    '10001000100010001000100010010010',
+    '00001000000010000000100000001000',
+    '10101010101010111010101010101012',
+    [[0,55],[6,55],[8,55],[14,49],[16,55],[22,55],[24,82.41],[30,65.41]],
+    [[0,440,2],[4,392,1],[8,329.63,2],[12,440,1],[16,523.25,2],[20,440,1],[24,659.25,2],[28,587.33,1]]),
+  mkTrack(168,2,
+    '10001001100010001000100110001010',
+    '00001000000010000000100000001001',
+    '12101210121012101210121012101212',
+    [[0,55],[2,55],[4,55],[6,55],[8,55],[10,55],[12,55],[14,49],[16,55],[18,55],[20,55],[22,55],[24,82.41],[26,82.41],[28,65.41],[30,65.41]],
+    [[0,440],[1,523.25],[2,587.33],[3,659.25],[4,880],[6,659.25],[8,440],[9,523.25],[10,587.33],[11,659.25],[12,880],[14,783.99],[16,440],[18,392],[20,329.63],[22,392],[24,440],[26,523.25],[28,587.33],[30,880]])
+];
+
+/* ---------- lookahead 调度器 ---------- */
+var sched=null,cur=-1;
+function tick(){
+  if(!sched)return;
+  var T=TRACKS[sched.ti],spb=60/T.bpm/4;
+  while(sched.nextT<actx.currentTime+.12){
+    playStep(T,sched.step%T.total,sched.nextT,spb);
+    sched.step++;sched.nextT+=spb;
+  }
+}
+function playStep(T,st,t,spb){
+  var k=T.kick[st],s=T.snare[st],h=T.hat[st];
+  if(k==='1')vKick(t,1);else if(k==='2')vKick(t,1.25);
+  if(s==='1')vSnare(t,1);else if(s==='2')vSnare(t,.55);
+  if(h==='1')vHat(t,1,false);else if(h==='2')vHat(t,1.15,true);
+  var bn=T.bassMap.get(st);if(bn)vBass(t,bn[1],spb*(bn[2]||.95));
+  var ln=T.leadMap.get(st);if(ln)vLead(t,ln[1],spb*(ln[2]||.9));
+}
+function stopSynth(){if(sched){clearInterval(sched.timer);sched=null;}}
+function isPlaying(){return !!sched||(player.src&&!player.paused&&!player.ended);}
+function selectTrack(i){
+  ensureCtx();stopSynth();
+  try{player.pause()}catch(_){}
+  cur=i;
+  btns.forEach(function(b,j){b.classList.toggle('act',j===i)});
+  sched={ti:i,step:0,nextT:actx.currentTime+.06,timer:setInterval(tick,30)};
+}
+
+/* ---------- 状态量 ---------- */
+var charge=0,peakE=0,smoothE=0,pulse=0,force=false,lastBeat=0;
+var bassHist=[],intervals=[];
+
+/* ---------- 过载视觉层（仅过载态显示） ---------- */
+var ovl={active:false,out:false,t0:0,outT0:0,overAt:0,rot:0,bandS:new Float32Array(8),parts:[],poly:null};
+function sizeOvl(){var w=innerWidth,h=innerHeight;ovlC._w=w;ovlC._h=h;ovlC.width=w*DPR;ovlC.height=h*DPR;}
+function startOvl(now){
+  ovl.active=true;ovl.out=false;ovl.t0=now;ovl.overAt=now;ovl.rot=0;
+  ovl.parts.length=0;ovl.poly=null;ovl.bandS.fill(0);
+  ovlC.style.display='block';sizeOvl();
+}
+function stopOvl(){
+  ovl.active=false;ovl.out=false;ovl.parts.length=0;ovl.poly=null;
+  ovlC.style.display='none';
+  og.setTransform(1,0,0,1,0,0);og.clearRect(0,0,ovlC.width,ovlC.height);
+}
+function endOvl(now){ovl.out=true;ovl.outT0=now;spawnShatter();}
+function spawnShatter(){
+  var P=ovl.poly;if(!P)return;
+  for(var e=0;e<8;e++){
+    var a=P.verts[e],b=P.verts[(e+1)%8];
+    for(var k=0;k<15;k++){
+      if(ovl.parts.length>=200)return; /* 粒子上限 200 */
+      var tt=k/15,x=a.x+(b.x-a.x)*tt+(Math.random()-.5)*8,y=a.y+(b.y-a.y)*tt+(Math.random()-.5)*8;
+      var dx=x-P.cx,dy=y-P.cy,dd=Math.hypot(dx,dy)||1,sp=180+Math.random()*420,dur=.25+Math.random()*.15;
+      ovl.parts.push({x:x,y:y,vx:dx/dd*sp+(Math.random()-.5)*120,vy:dy/dd*sp+(Math.random()-.5)*120,
+        s:2+Math.random()*3,life:1,dec:1/dur,col:Math.random()<.5?'36,231,255':'255,45,111'});
+    }
+  }
+}
+function easeIO(p){return p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2;}
+function renderOvl(now,dt){
+  if(!ovl.active)return; /* 非过载状态：完全不绘制 */
+  var g=og;
+  g.setTransform(DPR,0,0,DPR,0,0);
+  var w=ovlC._w,h=ovlC._h;
+  g.clearRect(0,0,w,h);
+  /* 统一 clip 到画布矩形：任何线条不得超出画布 */
+  g.save();
+  g.beginPath();g.rect(0,0,w,h);g.clip();
+  var cx=w/2,cy=h/2,t=now-ovl.t0,R=Math.min(w,h)*.20; /* 短边 20%，固定全屏正中 */
+  if(!ovl.out){
+    ovl.rot+=dt*Math.PI/72; /* 10°/4s = 2.5°/s 慢旋 */
+    /* 8 频段能量（对数分布，平滑）——八边形顶点的唯一数据来源 */
+    if(actx&&freqData){
+      var nyq=actx.sampleRate/2,N=freqData.length;
+      var maxBin=Math.max(8,Math.min(N-1,Math.floor(15000/nyq*N)));
+      for(var i=0;i<8;i++){
+        var b0=Math.floor(Math.pow(i/8,1.7)*maxBin);
+        var b1=Math.max(b0+1,Math.floor(Math.pow((i+1)/8,1.7)*maxBin));
+        var s=0;for(var j=b0;j<b1;j++)s+=freqData[j];
+        ovl.bandS[i]+=((s/(b1-b0)/255)-ovl.bandS[i])*.3;
+      }
+    }
+    var scale=1+pulse*.08; /* 重拍推到 1.08 回落 1.0 */
+    if(t<600){
+      /* 0–600ms：24 条光带从屏幕下方缓动汇聚到中心 */
+      var p=Math.min(1,t/600),e2=easeIO(p),fade=Math.min(1,t/280);
+      g.globalCompositeOperation='lighter';
+      for(var bi=0;bi<24;bi++){
+        var sx=w*(.06+.88*bi/23)+Math.sin(bi*7.3)*30,sy=h+30;
+        var px=sx+(cx-sx)*e2,py=sy+(cy-sy)*e2;
+        var off=Math.sin(p*Math.PI)*(bi%2?1:-1)*(24+((bi*13)%10)*6);
+        var dx0=cx-sx,dy0=cy-sy,dl0=Math.hypot(dx0,dy0)||1;
+        var X=px+(-dy0/dl0)*off,Y=py+(dx0/dl0)*off;
+        var col=bi%2?'255,45,111':'36,231,255';
+        g.strokeStyle='rgba('+col+','+fade+')';
+        g.lineWidth=2+(bi%3);
+        g.shadowColor='rgb('+col+')';g.shadowBlur=12;
+        var ang=Math.atan2(cy-Y,cx-X),L=46+18*Math.sin(bi*3.1);
+        g.beginPath();g.moveTo(X,Y);g.lineTo(X+Math.cos(ang)*L,Y+Math.sin(ang)*L);g.stroke();
+      }
+      g.shadowBlur=0;g.globalCompositeOperation='source-over';
+    }else{
+      /* 正八边形：8 顶点=8 频段，无任何文字标注 */
+      var fd=Math.min(1,(t-600)/180),verts=[];
+      for(var vi=0;vi<8;vi++){
+        var a=ovl.rot+vi*Math.PI/4;
+        var r=(R+ovl.bandS[vi]*R*.6)*scale;
+        verts.push({x:cx+Math.cos(a)*r,y:cy+Math.sin(a)*r});
+      }
+      ovl.poly={cx:cx,cy:cy,verts:verts};
+      g.globalCompositeOperation='lighter';
+      /* 内部斜线纹理（极低透明度，不遮文字） */
+      g.save();
+      g.beginPath();g.moveTo(verts[0].x,verts[0].y);
+      for(var li=1;li<8;li++)g.lineTo(verts[li].x,verts[li].y);
+      g.closePath();g.clip();
+      g.strokeStyle='rgba(233,234,228,'+(.05*fd)+')';g.lineWidth=1;
+      g.beginPath();
+      for(var x=-h;x<w+h;x+=14){g.moveTo(x,-8);g.lineTo(x+h+16,h+8);}
+      g.stroke();
+      g.restore();
+      /* 描边 2px + 18px 发光（青→粉循环） */
+      g.lineWidth=2;g.shadowBlur=18;
+      for(var si=0;si<8;si++){
+        var va=verts[si],vb=verts[(si+1)%8],vc=mixCol(si/8);
+        g.strokeStyle='rgba('+vc+','+fd+')';
+        g.shadowColor='rgb('+vc+')';
+        g.beginPath();g.moveTo(va.x,va.y);g.lineTo(vb.x,vb.y);g.stroke();
+      }
+      /* 顶点光点 */
+      for(var di=0;di<8;di++){
+        var dc=mixCol(di/8);
+        g.fillStyle='rgba('+dc+','+fd+')';
+        g.shadowColor='rgb('+dc+')';g.shadowBlur=10;
+        g.beginPath();g.arc(verts[di].x,verts[di].y,3,0,7);g.fill();
+      }
+      g.shadowBlur=0;g.globalCompositeOperation='source-over';
+    }
+  }else{
+    /* outro：400ms 内收缩至 0.6 倍 + 粒子飞出，随后与遮罩一起消失 */
+    var ot=now-ovl.outT0;
+    if(ot>=400){g.restore();stopOvl();return;}
+    var of=1-ot/400;
+    g.globalCompositeOperation='lighter';
+    if(ovl.poly){
+      var sc=1-.4*Math.min(1,ot/180);
+      g.strokeStyle='rgba(255,45,111,'+of+')';
+      g.lineWidth=2;g.shadowColor='rgb(255,45,111)';g.shadowBlur=18;
+      g.beginPath();
+      ovl.poly.verts.forEach(function(v,i){
+        var X=ovl.poly.cx+(v.x-ovl.poly.cx)*sc,Y=ovl.poly.cy+(v.y-ovl.poly.cy)*sc;
+        i?g.lineTo(X,Y):g.moveTo(X,Y);
+      });
+      g.closePath();g.stroke();
+      g.shadowBlur=0;
+    }
+    for(var pi=ovl.parts.length-1;pi>=0;pi--){
+      var pp=ovl.parts[pi];
+      pp.life-=pp.dec*dt;
+      if(pp.life<=0){ovl.parts.splice(pi,1);continue;}
+      pp.x+=pp.vx*dt;pp.y+=pp.vy*dt;
+      var damp=Math.exp(-dt*1.2);pp.vx*=damp;pp.vy*=damp;
+      var aa=Math.max(0,Math.min(1,pp.life))*of;
+      g.fillStyle='rgba('+pp.col+','+aa+')';
+      g.fillRect(pp.x-pp.s/2,pp.y-pp.s/2,pp.s,pp.s);
+      g.fillStyle='rgba('+pp.col+','+(aa*.25)+')';
+      g.fillRect(pp.x-pp.s*1.5,pp.y-pp.s*1.5,pp.s*3,pp.s*3);
+    }
+    g.globalCompositeOperation='source-over';
+  }
+  g.restore();
+}
+
+/* ---------- 自动演示（D 键） ---------- */
+var auto=null;
+function killAuto(){if(auto){clearInterval(auto.poll);auto=null;}}
+function stopDemo(){
+  stopSynth();
+  try{player.pause()}catch(_){}
+  btns.forEach(function(b){b.classList.remove('act')});
+  cur=-1;
+}
+function startAuto(){
+  if(auto)clearInterval(auto.poll);
+  resetAll();
+  auto={t:0,phase:0,holdT:0,poll:null};
+  selectTrack(0);
+  auto.poll=setInterval(function(){
+    if(!auto)return;
+    auto.t+=.1;
+    if(auto.phase===0&&auto.t>=3.6){auto.phase=1;selectTrack(1);}
+    else if(auto.phase===1&&auto.t>=7.6){auto.phase=2;selectTrack(2);}
+    else if(auto.phase===2&&auto.t>=11.6){auto.phase=3;force=true;}
+    else if(auto.phase===3&&charge>=99.5){auto.phase=4;auto.holdT=0;}
+    else if(auto.phase===4){auto.holdT+=.1;if(auto.holdT>=2.6){auto.phase=5;force=false;stopDemo();}}
+    else if(auto.phase===5&&charge<99.5){killAuto();resetAll();}
+  },100);
+}
+
+/* ---------- 复位（R 键） ---------- */
+function resetAll(){
+  killAuto();stopSynth();
+  try{player.pause()}catch(_){}
+  charge=0;peakE=0;smoothE=0;pulse=0;force=false;lastBeat=0;
+  bassHist.length=0;intervals.length=0;
+  cur=-1;btns.forEach(function(b){b.classList.remove('act')});
+  stopOvl();
+}
+
+/* ---------- 拖入本地音频（附加玩法） ---------- */
+addEventListener('dragover',function(e){e.preventDefault()});
+addEventListener('drop',function(e){
+  e.preventDefault();
+  var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
+  if(!f)return;
+  if(!/^audio\//.test(f.type)&&!/\.(mp3|wav|ogg|m4a|flac)$/i.test(f.name))return;
+  ensureCtx();
+  killAuto();stopSynth();cur=-1;
+  btns.forEach(function(b){b.classList.remove('act')});
+  player.src=URL.createObjectURL(f);
+  player.play().catch(function(){});
+});
+
+/* ---------- 键盘 ---------- */
+addEventListener('keydown',function(e){
+  if(e.repeat)return;
+  var c=e.code,k=(e.key||'').toLowerCase(),ek=e.key;
+  if(c==='Digit1'||c==='Numpad1'||k==='1'){selectTrack(0);return;}
+  if(c==='Digit2'||c==='Numpad2'||k==='2'){selectTrack(1);return;}
+  if(c==='Digit3'||c==='Numpad3'||k==='3'){selectTrack(2);return;}
+  if(c==='Space'||ek===' '||ek==='Spacebar'){e.preventDefault();ensureCtx();force=true;return;}
+  if(c==='KeyD'||k==='d'){startAuto();return;}
+  if(c==='KeyR'||k==='r'){resetAll();return;}
+  if(c==='KeyF'||k==='f'){
+    if(document.fullscreenElement){document.exitFullscreen().catch(function(){})}
+    else{document.documentElement.requestFullscreen().catch(function(){})}
+    return;
+  }
+});
+addEventListener('keyup',function(e){
+  if(e.code==='Space'||e.key===' '||e.key==='Spacebar')force=false;
+});
+addEventListener('blur',function(){force=false;});
+btns.forEach(function(b,i){b.addEventListener('click',function(){killAuto();selectTrack(i);})});
+
+/* ---------- 画布尺寸 ---------- */
+function sizeCanvases(){
+  DPR=Math.min(2,window.devicePixelRatio||1);
+  [gaugeC,specC].forEach(function(c){
+    var r=c.getBoundingClientRect();
+    c._w=Math.max(10,Math.round(r.width));c._h=Math.max(10,Math.round(r.height));
+    c.width=c._w*DPR;c.height=c._h*DPR;
+  });
+  sizeOvl();
+}
+addEventListener('resize',sizeCanvases);
+
+/* ---------- 仪表盘（270° 弧 + 分区色 + 峰值保持针 + 数字读数） ---------- */
+function drawGauge(){
+  var g=gg,w=gaugeC._w,h=gaugeC._h;if(!w)return;
+  g.setTransform(DPR,0,0,DPR,0,0);g.clearRect(0,0,w,h);
+  var cx=w/2,cy=h*.55,R=Math.min(w*.44,h*.68);
+  var a0=Math.PI*.75,span=Math.PI*1.5;
+  g.lineWidth=10;g.lineCap='butt';
+  g.strokeStyle='rgba(36,231,255,.10)';
+  g.beginPath();g.arc(cx,cy,R,a0,a0+span);g.stroke();
+  var zones=[[0,.7,'rgba(36,231,255,.22)'],[.7,.9,'rgba(255,45,111,.22)'],[.9,1,'rgba(255,45,111,.45)']];
+  zones.forEach(function(z){
+    g.strokeStyle=z[2];
+    g.beginPath();g.arc(cx,cy,R,a0+span*z[0],a0+span*z[1]);g.stroke();
+  });
+  var cv=Math.min(1,charge/100),col=mixCol(cv);
+  g.strokeStyle='rgb('+col+')';g.shadowColor='rgb('+col+')';g.shadowBlur=14;
+  g.beginPath();g.arc(cx,cy,R,a0,a0+span*cv);g.stroke();
+  g.shadowBlur=0;
+  g.strokeStyle='rgba(36,231,255,.4)';g.lineWidth=1;
+  for(var i=0;i<=10;i++){
+    var a=a0+span*i/10,c1=Math.cos(a),s1=Math.sin(a);
+    g.beginPath();g.moveTo(cx+c1*(R-14),cy+s1*(R-14));g.lineTo(cx+c1*(R-20),cy+s1*(R-20));g.stroke();
+  }
+  /* 峰值保持针（瞬时能量峰值） */
+  var pa=a0+span*Math.min(1,peakE);
+  g.strokeStyle='rgba(233,234,228,.6)';g.lineWidth=2;
+  g.beginPath();
+  g.moveTo(cx+Math.cos(pa)*(R-22),cy+Math.sin(pa)*(R-22));
+  g.lineTo(cx+Math.cos(pa)*(R+12),cy+Math.sin(pa)*(R+12));
+  g.stroke();
+  /* 主针（电量） */
+  var va2=a0+span*cv;
+  g.strokeStyle='#ff2d6f';g.shadowColor='#ff2d6f';g.shadowBlur=12;g.lineWidth=3;
+  g.beginPath();
+  g.moveTo(cx-Math.cos(va2)*16,cy-Math.sin(va2)*16);
+  g.lineTo(cx+Math.cos(va2)*(R-24),cy+Math.sin(va2)*(R-24));
+  g.stroke();
+  g.shadowBlur=0;
+  g.fillStyle='#0b1220';g.strokeStyle='#24e7ff';g.lineWidth=1.5;
+  g.beginPath();g.arc(cx,cy,6,0,7);g.fill();g.stroke();
+  g.textAlign='center';
+  g.fillStyle='#e9eae4';
+  g.font='700 '+Math.round(Math.max(22,R*.3))+"px Consolas,'Courier New',monospace";
+  g.fillText(charge.toFixed(1),cx,cy+R*.42);
+  g.fillStyle='rgba(159,179,192,.85)';
+  g.font=Math.max(10,Math.round(R*.08))+'px Consolas,monospace';
+  g.fillText('CHARGE %',cx,cy+R*.42+R*.12);
+}
+
+/* ---------- 频谱（72 柱对数分布 + 峰值帽） ---------- */
+var SPEC=72,specPeaks=new Float32Array(SPEC);
+function drawSpec(dt){
+  var g=sg,w=specC._w,h=specC._h;if(!w)return;
+  g.setTransform(DPR,0,0,DPR,0,0);g.clearRect(0,0,w,h);
+  var N=freqData?freqData.length:0;
+  var maxBin=N?Math.max(8,Math.floor(N*.72)):1;
+  var bw=w/SPEC;
+  for(var i=0;i<SPEC;i++){
+    var v=0;
+    if(N){
+      var b0=Math.floor(Math.pow(i/SPEC,1.9)*maxBin);
+      var b1=Math.max(b0+1,Math.floor(Math.pow((i+1)/SPEC,1.9)*maxBin));
+      var s=0;for(var j=b0;j<b1;j++)s+=freqData[j];
+      v=s/(b1-b0)/255;
+    }
+    var bh=v*h*.92,col=mixCol(i/SPEC);
+    g.fillStyle='rgba('+col+',.8)';
+    g.fillRect(i*bw+1,h-bh,bw-2,bh);
+    specPeaks[i]=Math.max(v,specPeaks[i]-dt*.45);
+    var py=h-specPeaks[i]*h*.92;
+    g.fillStyle='rgba('+col+',.95)';
+    g.fillRect(i*bw+1,Math.max(0,py-3),bw-2,2);
+  }
+}
+
+/* ---------- DOM 读数 ---------- */
+function updateDom(over,charging){
+  pctNum.textContent=Math.round(charge);
+  var lit=charge<=0?0:Math.max(1,Math.round(charge/100*CELLS));
+  if(over)lit=CELLS;
+  cells.forEach(function(c,i){c.classList.toggle('lit',i<lit)});
+  statusEl.textContent=over?'OVERCHARGE':(charging?'CHARGING':'STANDBY');
+}
+
+/* ---------- 主循环 ---------- */
+var prev=performance.now();
+function loop(now){
+  var dt=Math.min(.05,(now-prev)/1000);prev=now;
+  var e=0,bass=0,mid=0,high=0;
+  if(actx&&freqData){
+    analyser.getByteFrequencyData(freqData);
+    bass=band(30,160);mid=band(300,2500);high=band(4000,13000);
+    e=bass*.55+mid*.3+high*.15;
+  }
+  e=Math.min(1,e*sens);
+  smoothE+=(e-smoothE)*(e>smoothE?.5:.08); /* 快攻慢放 */
+
+  /* 节拍检测：低频能量 vs 50 帧滚动均值 */
+  var ts=now/1000;
+  bassHist.push(bass);if(bassHist.length>50)bassHist.shift();
+  var sum=0;for(var i=0;i<bassHist.length;i++)sum+=bassHist[i];
+  var bavg=sum/bassHist.length;
+  if(actx&&bass>bavg*1.32+.05&&bass>.12&&ts-lastBeat>.24){
+    if(lastBeat>0){intervals.push(ts-lastBeat);if(intervals.length>9)intervals.shift();}
+    lastBeat=ts;pulse=1;
+    batt.classList.remove('zap');void batt.offsetWidth;batt.classList.add('zap');
+  }
+  pulse*=Math.exp(-dt*7);
+
+  /* 电量模型：强充 30/s，正常 dt*(smoothE*26+pulse*8)，漏电 2.5/s */
+  var playing=isPlaying(),charging=playing||force;
+  if(force)charge=Math.min(100,charge+dt*30);
+  else if(charging)charge=Math.min(100,charge+dt*(smoothE*26+pulse*8));
+  else charge=Math.max(0,charge-dt*2.5);
+  peakE=Math.max(smoothE,peakE-dt*.12);
+
+  /* 过载触发 / 释放 */
+  var over=charge>=99.5;
+  document.body.classList.toggle('over',over);
+  if(over&&!ovl.active)startOvl(now);
+  else if(!over&&ovl.active&&!ovl.out){
+    if(now-ovl.overAt>650)endOvl(now);else stopOvl();
+  }
+  veil.style.display=ovl.active?'block':'none';
+  statusbar.style.display=ovl.active?'flex':'none';
+  flashEl.style.opacity=(pulse*.2).toFixed(3);
+  renderOvl(now,dt);
+  drawGauge();drawSpec(dt);updateDom(over,charging);
+  requestAnimationFrame(loop);
+}
+
+/* ---------- 启动 ---------- */
+sizeCanvases();
+requestAnimationFrame(function(t){prev=t;loop(t);});
+</script>
+</body>
+</html>
