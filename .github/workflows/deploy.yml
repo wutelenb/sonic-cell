@@ -6,6 +6,7 @@ permissions:
   pages: write
   id-token: write
   contents: read
+  administration: write
 jobs:
   deploy:
     runs-on: ubuntu-latest
