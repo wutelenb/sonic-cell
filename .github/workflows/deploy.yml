@@ -7,6 +7,7 @@ permissions:
   id-token: write
   contents: read
   administration: write
+# Pages 已在仓库设置中手动开启（Source: GitHub Actions）
 jobs:
   deploy:
     runs-on: ubuntu-latest
